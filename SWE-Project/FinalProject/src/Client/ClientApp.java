@@ -6,6 +6,8 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 
+import Client.GeocodingService;
+
 public class ClientApp {
     private String serverAddress;
     private int serverPort;
@@ -44,19 +46,42 @@ public class ClientApp {
     }
 
     public String signupCustomer(String username, String password, String email, String phoneNumber, String address, String cardNumber, String cardExpiration, String cardCVV) throws Exception {
-        String request = "type=signupCustomer&username=" + username + "&password=" + password +
-                "&email=" + email + "&phoneNumber=" + phoneNumber + "&address=" + address +
-                "&cardNumber=" + cardNumber + "&cardExpiration=" + cardExpiration + "&cardCVV=" + cardCVV;
-        return sendRequest(request);
+        try{
+            double[] coordinates = GeocodingService.getCoordinates(address);
+            if (coordinates[0] == 0 && coordinates[1] == 0){
+                System.out.println("Invalid address");
+                return "Invalid address";
+            }
+            String coordinatesString = coordinates[0] + "," + coordinates[1];
+            String request = "type=signupCustomer&username=" + username + "&password=" + password +
+                    "&email=" + email + "&phoneNumber=" + phoneNumber + "&address=" + coordinatesString +
+                    "&cardNumber=" + cardNumber + "&cardExpiration=" + cardExpiration + "&cardCVV=" + cardCVV;
+            return sendRequest(request);
+        }
+        catch (Exception e){
+            System.out.println("Invalid address");
+            return "Invalid address";
+        }
+
     }
 
     public String signupRestaurant(String username, String password, String email, String phoneNumber, String address, String restaurantName, String restaurantPhone, String restaurantHours, String restaurantCuisine, String restaurantMenu) throws Exception {
-        String request = "type=signupRestaurant&username=" + username + "&password=" + password +
-                "&email=" + email + "&phoneNumber=" + phoneNumber + "&address=" + address +
-                "&restaurantName=" + restaurantName + "&restaurantPhone=" + restaurantPhone +
-                "&restaurantHours=" + restaurantHours + "&restaurantCuisine=" + restaurantCuisine +
-                "&restaurantMenu=" + restaurantMenu;
-        return sendRequest(request);
+        try {
+            double[] coordinates = GeocodingService.getCoordinates(address);
+            if (coordinates[0] == 0 && coordinates[1] == 0) {
+                System.out.println("Invalid address");
+                return "Invalid address";
+            }
+            String coordinatesString = coordinates[0] + "," + coordinates[1];
+            String request = "type=signupRestaurant&username=" + username + "&password=" + password +
+                    "&email=" + email + "&phoneNumber=" + phoneNumber + "&address=" + coordinatesString +
+                    "&restaurantName=" + restaurantName + "&restaurantPhone=" + restaurantPhone + "&restaurantHours=" + restaurantHours +
+                    "&restaurantCuisine=" + restaurantCuisine + "&restaurantMenu=" + restaurantMenu;
+            return sendRequest(request);
+        } catch (Exception e) {
+            System.out.println("Invalid address");
+            return "Invalid address";
+        }
     }
 
     public String getRestaurants() throws Exception {
@@ -86,7 +111,6 @@ public class ClientApp {
 
             // Example usage
             String loginResponse = client.login("testUser", "testPass");
-            System.out.println(loginResponse);
             String signupCustomerResponse = client.signupCustomer("testUser", "testPass", "testEmail", "testPhone", "testAddress", "testCardNumber", "testCardExpiration", "testCardCVV");
             client.disconnect();
         } catch (Exception e) {

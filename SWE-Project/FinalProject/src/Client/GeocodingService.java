@@ -3,15 +3,14 @@ package Client;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.Properties;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 public class GeocodingService {
 
     public static String getApiKey() {
         Properties properties = new Properties();
-        try (FileInputStream input = new FileInputStream("SWE-Project/FinalProject/.env")) {
+        try (FileInputStream input = new FileInputStream("src/Client/.env")) {
             properties.load(input);
             return properties.getProperty("APIKEY");
         } catch (IOException e) {
@@ -28,7 +27,7 @@ public class GeocodingService {
     public static double[] getCoordinates(String address) {
         try {
             // Prepare the URL with the address and API key
-            String encodedAddress = java.net.URLEncoder.encode(address, "UTF-8");
+            String encodedAddress = URLEncoder.encode(address, "UTF-8");
             String urlString = "https://api.opencagedata.com/geocode/v1/json?q=" + encodedAddress + "&key=" + API_KEY;
 
             // Create a URL and open a connection
@@ -44,22 +43,43 @@ public class GeocodingService {
                 response.append(inputLine);
             }
             in.close();
-
+            double latitude = 0;
+            double longitude = 0;
             // Parse the JSON response
-            JSONObject jsonObject = new JSONObject(response.toString());
-            JSONArray results = jsonObject.getJSONArray("results");
-            if (results != null && results.length() > 0) {
-                JSONObject geometry = results.getJSONObject(0).getJSONObject("geometry");
-                double lat = geometry.getDouble("lat");
-                double lng = geometry.getDouble("lng");
-                return new double[]{lat, lng};
-            } else {
-                return null;
+            String[] jsonString = response.toString().split(",");
+            for (String s : jsonString) {
+                if (s.contains("lat")) {
+                    try{
+                        latitude = Double.parseDouble(s.split(":")[2].split(":")[0]);
+                        break;
+                    }
+                    catch (NumberFormatException e){
+                        latitude = 0;
+                    }
+                    catch (ArrayIndexOutOfBoundsException e){
+                        latitude = 0;
+                    }
+                }
+            }
+            for (String s : jsonString) {
+                if (s.contains("lng")) {
+                    try{
+                        longitude = Double.parseDouble(s.split(":")[1].split("}")[0]);
+                        return new double[]{latitude, longitude};
+                    }
+                    catch (NumberFormatException e){
+                        longitude = 0;
+                    }
+                    catch (ArrayIndexOutOfBoundsException e){
+                        longitude = 0;
+                    }
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
+        return null;
     }
 
     public static void main(String[] args) {
