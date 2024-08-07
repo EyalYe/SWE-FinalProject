@@ -4,27 +4,18 @@ import java.io.*;
 import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ArrayList;
 
 public class ClientHandler implements Runnable {
     private Socket clientSocket;
     private static Map<String, User> users = new HashMap<>();
-    private static ArrayList<String> restaurants = new ArrayList<>();
-    private Connection connection;
+    private static Map<String, RestaurantUser> restaurants = new HashMap<>();
     private String username;
     private String type;
 
     public ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
-        try {
-            // Establish database connection
-            connection = DriverManager.getConnection("jdbc:sqlite:your_database.db");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -44,47 +35,24 @@ public class ClientHandler implements Runnable {
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                clientSocket.close();
-                if (connection != null && !connection.isClosed()) {
-                    connection.close();
-                }
-            } catch (IOException | SQLException e) {
-                e.printStackTrace();
-            }
         }
     }
 
-    public static void loadUsersFromDatabase() {
-        String url = "jdbc:sqlite:your_database.db";
-        try (Connection connection = DriverManager.getConnection(url);
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery("SELECT * FROM users")) {
-
-            while (resultSet.next()) {
-                String username = resultSet.getString("username");
-                String password = resultSet.getString("password");
-                String email = resultSet.getString("email");
-                String phoneNumber = resultSet.getString("phoneNumber");
-                String address = resultSet.getString("address");
-                String userType = resultSet.getString("userType");
-
+    public static void loadUsersFromFile() {
+        try (BufferedReader reader = new BufferedReader(new FileReader("users.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                String username = parts[0];
+                String password = parts[1];
+                String userType = parts[2];
                 if (userType.equals("customer")) {
-                    String cardNumber = resultSet.getString("cardNumber");
-                    String cardExpiration = resultSet.getString("cardExpiration");
-                    String cardCVV = resultSet.getString("cardCVV");
-                    users.put(username, new CustomerUser(username, password, email, phoneNumber, address, cardNumber, cardExpiration, cardCVV));
+                    users.put(username, new CustomerUser(username, password, parts[3], parts[4], parts[5], parts[6], parts[7], parts[8]));
                 } else if (userType.equals("restaurant")) {
-                    String restaurantName = resultSet.getString("restaurantName");
-                    String restaurantPhone = resultSet.getString("restaurantPhone");
-                    String restaurantHours = resultSet.getString("restaurantHours");
-                    String restaurantCuisine = resultSet.getString("restaurantCuisine");
-                    String restaurantMenu = resultSet.getString("restaurantMenu");
-                    users.put(username, new RestaurantUser(username, password, email, phoneNumber, address, restaurantName, restaurantPhone, restaurantHours, restaurantCuisine, restaurantMenu));
+                    restaurants.put(username, new RestaurantUser(username, password, parts[3], parts[4], parts[5], parts[6], parts[7], parts[8], parts[9], parts[10]));
                 }
             }
-        } catch (SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -116,13 +84,6 @@ public class ClientHandler implements Runnable {
     }
 
     private String handleDisconnect(String[] params) {
-        if(this.type.equals("restaurant")){
-            try {
-                restaurants.remove(this.username);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
         return createResponse("success", "Disconnected");
     }
 
@@ -131,13 +92,9 @@ public class ClientHandler implements Runnable {
             return createResponse("error", "You are not authorized to update the menu");
         }
         String menu = getParamValue(params, "menu");
-        try {
-            String query = "UPDATE restaurants SET restaurantMenu = ? WHERE username = ?";
-            PreparedStatement statement = connection.prepareStatement(query);
-            statement.setString(1, menu);
-            statement.setString(2, this.username);
-            statement.executeUpdate();
-        } catch (SQLException e) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("restaurants.txt", true))) {
+            writer.write(this.username + "," + menu);
+        } catch (IOException e) {
             e.printStackTrace();
             return createResponse("error", "Failed to update menu");
         }
@@ -163,28 +120,23 @@ public class ClientHandler implements Runnable {
         String username = getParamValue(params, "username");
         String password = getParamValue(params, "password");
         String hashedPassword = hashPassword(password);
+        String type = users.containsKey(username) ? users.get(username).getType() : "";
 
-        try {
-            String query = "SELECT * FROM users WHERE username = ? AND password = ?";
-            PreparedStatement statement = connection.prepareStatement(query);
-            statement.setString(1, username);
-            statement.setString(2, hashedPassword);
-            ResultSet resultSet = statement.executeQuery();
-
-            if (resultSet.next()) {
-                String userType = resultSet.getString("userType");
-                return createResponse("success", "Login successful", userType);
-            } else {
-                return createResponse("error", "Login failed");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+        if (users.containsKey(username) && users.get(username).checkPassword(hashedPassword)) {
+            this.username = username;
+            this.type = type;
+            return createResponse("success", "Login successful", this.type);
+        } else {
             return createResponse("error", "Login failed");
         }
     }
 
     private String handleSignupCustomer(String[] params) {
         String username = getParamValue(params, "username");
+        if (users.containsKey(username)) {
+            return createResponse("error", "User already exists");
+        }
+
         String password = getParamValue(params, "password");
         String hashedPassword = hashPassword(password);
         String email = getParamValue(params, "email");
@@ -197,20 +149,11 @@ public class ClientHandler implements Runnable {
         CustomerUser customer = new CustomerUser(username, hashedPassword, email, phoneNumber, address, cardNumber, cardExpiration, cardCVV);
         users.put(username, customer);
 
-        // Save to database
-        try {
-            String query = "INSERT INTO customers (username, password, email, phoneNumber, address, cardNumber, cardExpiration, cardCVV) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            PreparedStatement statement = connection.prepareStatement(query);
-            statement.setString(1, username);
-            statement.setString(2, hashedPassword);
-            statement.setString(3, email);
-            statement.setString(4, phoneNumber);
-            statement.setString(5, address);
-            statement.setString(6, cardNumber);
-            statement.setString(7, cardExpiration);
-            statement.setString(8, cardCVV);
-            statement.executeUpdate();
-        } catch (SQLException e) {
+        // Save to file
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("users.txt", true))) {
+            writer.write(username + "," + hashedPassword + ",customer," + email + "," + phoneNumber + "," + address + "," + cardNumber + "," + cardExpiration + "," + cardCVV);
+            writer.newLine();
+        } catch (IOException e) {
             e.printStackTrace();
             return createResponse("error", "Customer signup failed");
         }
@@ -220,6 +163,10 @@ public class ClientHandler implements Runnable {
 
     private String handleSignupRestaurant(String[] params) {
         String username = getParamValue(params, "username");
+        if (users.containsKey(username)) {
+            return createResponse("error", "User already exists");
+        }
+
         String password = getParamValue(params, "password");
         String hashedPassword = hashPassword(password);
         String email = getParamValue(params, "email");
@@ -234,22 +181,11 @@ public class ClientHandler implements Runnable {
         RestaurantUser restaurant = new RestaurantUser(username, hashedPassword, email, phoneNumber, address, restaurantName, restaurantPhone, restaurantHours, restaurantCuisine, restaurantMenu);
         users.put(username, restaurant);
 
-        // Save to database
-        try {
-            String query = "INSERT INTO restaurants (username, password, email, phoneNumber, address, restaurantName, restaurantPhone, restaurantHours, restaurantCuisine, restaurantMenu) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            PreparedStatement statement = connection.prepareStatement(query);
-            statement.setString(1, username);
-            statement.setString(2, hashedPassword);
-            statement.setString(3, email);
-            statement.setString(4, phoneNumber);
-            statement.setString(5, address);
-            statement.setString(6, restaurantName);
-            statement.setString(7, restaurantPhone);
-            statement.setString(8, restaurantHours);
-            statement.setString(9, restaurantCuisine);
-            statement.setString(10, restaurantMenu);
-            statement.executeUpdate();
-        } catch (SQLException e) {
+        // Save to file
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("users.txt", true))) {
+            writer.write(username + "," + hashedPassword + ",restaurant," + email + "," + phoneNumber + "," + address + "," + restaurantName + "," + restaurantPhone + "," + restaurantHours + "," + restaurantCuisine + "," + restaurantMenu);
+            writer.newLine();
+        } catch (IOException e) {
             e.printStackTrace();
             return createResponse("error", "Restaurant signup failed");
         }

@@ -1,12 +1,8 @@
 package Server;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 public class ServerApp {
     private int port;
@@ -16,8 +12,8 @@ public class ServerApp {
     public ServerApp(int port) {
         this.port = port;
         this.running = false;
-        createDatabase();
-        ClientHandler.loadUsersFromDatabase();
+        createFiles();
+        ClientHandler.loadUsersFromFile();
     }
 
     public void start() {
@@ -48,51 +44,18 @@ public class ServerApp {
         }
     }
 
-    private void createDatabase() {
-        String url = "jdbc:sqlite:your_database.db";
-
-        try (Connection connection = DriverManager.getConnection(url);
-             Statement statement = connection.createStatement()) {
-
-            // Create tables if they do not exist
-            String createCustomersTable = "CREATE TABLE IF NOT EXISTS customers (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "username TEXT NOT NULL UNIQUE," +
-                    "password TEXT NOT NULL," +
-                    "email TEXT NOT NULL," +
-                    "phoneNumber TEXT," +
-                    "address TEXT," +
-                    "cardNumber TEXT," +
-                    "cardExpiration TEXT," +
-                    "cardCVV TEXT" +
-                    ")";
-            statement.executeUpdate(createCustomersTable);
-
-            String createRestaurantsTable = "CREATE TABLE IF NOT EXISTS restaurants (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "username TEXT NOT NULL UNIQUE," +
-                    "password TEXT NOT NULL," +
-                    "email TEXT NOT NULL," +
-                    "phoneNumber TEXT," +
-                    "address TEXT," +
-                    "restaurantName TEXT," +
-                    "restaurantPhone TEXT," +
-                    "restaurantHours TEXT," +
-                    "restaurantCuisine TEXT," +
-                    "restaurantMenu TEXT" +
-                    ")";
-            statement.executeUpdate(createRestaurantsTable);
-
-            String createUsersTable = "CREATE TABLE IF NOT EXISTS users (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "username TEXT NOT NULL UNIQUE," +
-                    "password TEXT NOT NULL," +
-                    "userType TEXT NOT NULL" +
-                    ")";
-            statement.executeUpdate(createUsersTable);
-
-        } catch (SQLException e) {
+    private void createFiles() {
+        try {
+            new File("customers.txt").createNewFile();
+            new File("restaurants.txt").createNewFile();
+            new File("users.txt").createNewFile();
+        } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void main(String[] args) {
+        ServerApp server = new ServerApp(12345);
+        server.start();
     }
 }

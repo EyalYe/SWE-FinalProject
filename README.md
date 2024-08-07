@@ -35,7 +35,7 @@ status=success&message=Login successful&userType=customer
 **Response:** `status=<status>&message=<message>`
 
 ### Get Restaurants
-**Request:** `type=getRestaurants`
+**Request:** `type=getRestaurants&distance=<distance>&cuisine=<cuisine>`
 
 **Response:** `status=<status>&message=<message>`
 

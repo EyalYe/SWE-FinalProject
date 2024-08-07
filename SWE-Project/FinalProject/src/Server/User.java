@@ -7,14 +7,17 @@ public abstract class User {
     private String phoneNumber;
     private String address;
     private boolean loggedIn;
+    private String type;
 
-    public User(String username, String password, String email, String phoneNumber, String address) {
+    public User(String username, String password, String email, String phoneNumber, String address, String type) {
         this.username = username;
         this.password = password;
         this.email = email;
         this.phoneNumber = phoneNumber;
         this.address = address;
         this.loggedIn = false;
+        this.type = type;
+
     }
 
     public String getUsername() {
@@ -63,5 +66,8 @@ public abstract class User {
 
     public boolean checkPassword(String password) {
         return this.password.equals(password);
+    }
+    public String getType(){
+        return type;
     }
 }

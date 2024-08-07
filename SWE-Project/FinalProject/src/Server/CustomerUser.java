@@ -6,7 +6,7 @@ public class CustomerUser extends User{
     private String cardCVV;
 
     public CustomerUser(String username, String password, String email, String phone, String address, String cardNumber, String cardExpiration, String cardCVV){
-        super(username, password, email, phone, address);
+        super(username, password, email, phone, address, "customer");
         this.cardNumber = cardNumber;
         this.cardExpiration = cardExpiration;
         this.cardCVV = cardCVV;
