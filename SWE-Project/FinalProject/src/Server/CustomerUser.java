@@ -36,4 +36,10 @@ public class CustomerUser extends User{
         this.cardCVV = cardCVV;
     }
 
+    public void SetCreditCard(String cardNumber, String cardExpiration, String cardCVV){
+        this.cardNumber = cardNumber;
+        this.cardExpiration = cardExpiration;
+        this.cardCVV = cardCVV;
     }
+
+}

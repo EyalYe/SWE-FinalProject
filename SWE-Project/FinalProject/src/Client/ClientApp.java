@@ -52,7 +52,7 @@ public class ClientApp {
                 System.out.println("Invalid address");
                 return "Invalid address";
             }
-            String coordinatesString = coordinates[0] + "," + coordinates[1];
+            String coordinatesString = coordinates[0] + "#" + coordinates[1];
             String request = "type=signupCustomer&username=" + username + "&password=" + password +
                     "&email=" + email + "&phoneNumber=" + phoneNumber + "&address=" + coordinatesString +
                     "&cardNumber=" + cardNumber + "&cardExpiration=" + cardExpiration + "&cardCVV=" + cardCVV;
@@ -72,7 +72,7 @@ public class ClientApp {
                 System.out.println("Invalid address");
                 return "Invalid address";
             }
-            String coordinatesString = coordinates[0] + "," + coordinates[1];
+            String coordinatesString = coordinates[0] + "#" + coordinates[1];
             String request = "type=signupRestaurant&username=" + username + "&password=" + password +
                     "&email=" + email + "&phoneNumber=" + phoneNumber + "&address=" + coordinatesString +
                     "&restaurantName=" + restaurantName + "&restaurantPhone=" + restaurantPhone + "&restaurantHours=" + restaurantHours +

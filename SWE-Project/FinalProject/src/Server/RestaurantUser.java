@@ -1,11 +1,15 @@
 package Server;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class RestaurantUser extends User {
     private String restaurantName;
     private String restaurantPhone;
     private String restaurantHours;
     private String restaurantCuisine;
     private String restaurantMenu;
+    private List<Order> orders = new ArrayList<Order>();
 
     public RestaurantUser(String username, String password, String email, String phoneNumber, String address, String restaurantName, String restaurantPhone, String restaurantHours, String restaurantCuisine, String restaurantMenu) {
         super(username, password, email, phoneNumber, address, "restaurant");
@@ -56,4 +60,7 @@ public class RestaurantUser extends User {
         this.restaurantMenu = restaurantMenu;
     }
 
+    public void addOrder(Order order) {
+        this.orders.add(order);
+    }
 }

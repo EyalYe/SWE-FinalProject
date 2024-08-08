@@ -2,8 +2,11 @@ package Server;
 
 import java.io.*;
 import java.net.Socket;
+import java.lang.Math;
+import java.lang.Double;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,6 +16,7 @@ public class ClientHandler implements Runnable {
     private static Map<String, RestaurantUser> restaurants = new HashMap<>();
     private String username;
     private String type;
+    private static int orderId = 0;
 
     public ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -76,6 +80,8 @@ public class ClientHandler implements Runnable {
                 return handlePlaceOrder(params);
             case "updateMenu":
                 return handleUpdateMenu(params);
+            case "updateCreditCard":
+                return handleUpdateCreditCard(params);
             case "disconnect":
                 return handleDisconnect(params);
             default:
@@ -87,11 +93,35 @@ public class ClientHandler implements Runnable {
         return createResponse("success", "Disconnected");
     }
 
+    private String handleUpdateCreditCard(String[] params) {
+        if (!this.type.equals("customer")) {
+            return createResponse("error", "You are not authorized to update the credit card");
+        }
+        String cardNumber = getParamValue(params, "cardNumber");
+        String cardExpiration = getParamValue(params, "cardExpiration");
+        String cardCVV = getParamValue(params, "cardCVV");
+        CustomerUser customer = (CustomerUser) users.get(this.username);
+        customer.setCardNumber(cardNumber);
+        customer.setCardExpiration(cardExpiration);
+        customer.setCardCVV(cardCVV);
+
+        // Update file
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("users.txt", true))) {
+            writer.write(this.username + "," + customer.getPassword() + ",customer," + customer.getEmail() + "," + customer.getPhoneNumber() + "," + customer.getAddress() + "," + cardNumber + "," + cardExpiration + "," + cardCVV);
+            writer.newLine();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return createResponse("error", "Failed to update credit card");
+        }
+
+        return createResponse("success", "Credit card updated successfully");
+    }
+
     private String handleUpdateMenu(String[] params) {
         if (!this.type.equals("restaurant")) {
             return createResponse("error", "You are not authorized to update the menu");
         }
-        String menu = getParamValue(params, "menu");
+        String menu = getParamValue(params, "menuDetails");
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("restaurants.txt", true))) {
             writer.write(this.username + "," + menu);
         } catch (IOException e) {
@@ -102,7 +132,17 @@ public class ClientHandler implements Runnable {
     }
 
     private String handlePlaceOrder(String[] params) {
-        // Implement place order logic
+        if (!this.type.equals("customer")) {
+            return createResponse("error", "You are not authorized to place an order");
+        }
+        String restaurantName = getParamValue(params, "restaurantName");
+        if (!restaurants.containsKey(restaurantName)) {
+            return createResponse("error", "Restaurant not found");
+        }
+        Order order = new Order(orderId++, this.username, restaurantName, getParamValue(params, "orderDetails"));
+        RestaurantUser restaurant = restaurants.get(restaurantName);
+        restaurant.addOrder(order);
+
         return createResponse("success", "Order placed successfully");
     }
 
@@ -112,8 +152,18 @@ public class ClientHandler implements Runnable {
     }
 
     private String handleGetRestaurants(String[] params) {
-        // Implement get restaurant list logic
-        return createResponse("success", "Restaurant list retrieved");
+        StringBuilder restaurantString = new StringBuilder();
+        String restaurantType = getParamValue(params, "restaurantType");
+        String address = getParamValue(params, "address");
+        double distance = Double.parseDouble(getParamValue(params, "distance"));
+        for (Map.Entry<String, RestaurantUser> entry : restaurants.entrySet()) {
+            RestaurantUser restaurant = entry.getValue();
+            if (checkDistance(address, restaurant.getAddress(), distance) && (restaurant.getRestaurantCuisine().equals(restaurantType) || restaurantType.equals(""))) {
+                System.out.println(restaurant.getRestaurantName());
+                restaurantString.append(restaurant.getRestaurantName()).append(",");
+            }
+        }
+        return createResponse("success", restaurantString.toString());
     }
 
     private String handleLogin(String[] params) {
@@ -223,5 +273,35 @@ public class ClientHandler implements Runnable {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private boolean checkDistance(String address1, String address2, double distance){
+        double lat1 = Double.parseDouble(address1.split("#")[0]);
+        double lon1 = Double.parseDouble(address1.split("#")[1]);
+        double lat2 = Double.parseDouble(address2.split("#")[0]);
+        double lon2 = Double.parseDouble(address2.split("#")[1]);
+
+        double calculatedDistance = calculateDistance(lat1, lon1, lat2, lon2);
+        return calculatedDistance < distance;
+        }
+
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final double EARTH_RADIUS = 6371000; // radius in meters
+
+        double lat1Rad = Math.toRadians(lat1);
+        double lon1Rad = Math.toRadians(lon1);
+        double lat2Rad = Math.toRadians(lat2);
+        double lon2Rad = Math.toRadians(lon2);
+
+        double deltaLat = lat2Rad - lat1Rad;
+        double deltaLon = lon2Rad - lon1Rad;
+
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                        Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return EARTH_RADIUS * c;
     }
 }
