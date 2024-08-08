@@ -147,8 +147,13 @@ public class ClientHandler implements Runnable {
     }
 
     private String handleGetMenu(String[] params) {
-        // Implement get menu logic
-        return createResponse("success", "Menu retrieved");
+        String restaurantName = getParamValue(params, "restaurantName");
+        if (!restaurants.containsKey(restaurantName)) {
+            return createResponse("error", "Restaurant not found");
+        }
+        RestaurantUser restaurant = restaurants.get(restaurantName);
+        String menu = restaurant.getRestaurantMenu();
+        return createResponse("success", menu);
     }
 
     private String handleGetRestaurants(String[] params) {
@@ -170,11 +175,13 @@ public class ClientHandler implements Runnable {
         String username = getParamValue(params, "username");
         String password = getParamValue(params, "password");
         String hashedPassword = hashPassword(password);
-        String type = users.containsKey(username) ? users.get(username).getType() : "";
 
         if (users.containsKey(username) && users.get(username).checkPassword(hashedPassword)) {
             this.username = username;
-            this.type = type;
+            this.type = users.get(username).getType();
+            if ( this.type.equals("restaurant")) {
+                restaurants.put(username, (RestaurantUser) users.get(username));
+            }
             return createResponse("success", "Login successful", this.type);
         } else {
             return createResponse("error", "Login failed");
